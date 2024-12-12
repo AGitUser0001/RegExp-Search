@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "chrome-types": "^0.1.250",
+    "new-javascript": "^0.4.1"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "RegExp Search",
+  "description": "Custom search functionality",
+  "version": "1.0",
+  "action": {
+    "default_popup": "search-ui.html",
+    "default_icon": "favicon.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "search-cs.js"
+      ],
+      "match_about_blank": true,
+      "match_origin_as_fallback": true,
+      "run_at": "document_start"
+    }
+  ]
+}
