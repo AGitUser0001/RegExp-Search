@@ -23,6 +23,7 @@ var input = id('query', HTMLTextAreaElement),
   total_el = id('total', HTMLSpanElement),
   pos_el = id('position', HTMLSpanElement),
   error_el = id('error', HTMLTextAreaElement),
+  flags_el = id('flags', HTMLElement),
   active = false, index = 1, total = 0, error = '', size = getComputedStyle(document.documentElement).fontSize, /** @type {[string, ...any] | null} */ queued = null;
 
 /**
@@ -38,18 +39,26 @@ input.addEventListener('input', inputListener);
 
 function inputListener() {
   try {
-    resize(input);
-    if (active) { queued = ['query', input.value, 'g']; send(['break']); return; } active = true;
-    send(['query', input.value, 'g']);
+    resize(input, '0.3rem');
+    if (active) { queued = ['query', input.value, getFlags()]; send(['break']); return; } active = true;
+    send(['query', input.value, getFlags()]);
   } catch (e) { errored(e); }
 }
+
+function getFlags() {
+  return [...flags_el.querySelectorAll('input')]
+    .reduce((flags, el) => el.checked ? flags + el.value : flags, 'g')
+}
+flags_el.querySelectorAll('input').forEach(el => {
+  el.addEventListener('change', inputListener);
+});
 
 /**
  * @param {HTMLTextAreaElement} textarea
  */
-function resize(textarea) {
+function resize(textarea, padding = '0px') {
   textarea.style.height = `0px`;
-  textarea.style.height = `round(down, ${textarea.scrollHeight}px, ${getComputedStyle(textarea).lineHeight})`;
+  textarea.style.height = `calc(round(down, ${textarea.scrollHeight}px, ${getComputedStyle(textarea).lineHeight}) + ${padding})`;
 }
 
 input.addEventListener('keydown', e => {
@@ -89,7 +98,7 @@ function update() {
     index = Math.min(Math.max(index, 1), total);
     index_el.textContent = `${index}`;
     total_el.textContent = `${total}`;
-    error_el.value = `${error}`; resize(error_el);
+    error_el.value = `${error}`; resize(error_el, '0.2rem');
     if (!total) pos_el.classList.add('blank');
     else pos_el.classList.remove('blank');
     if (!error) error_el.classList.add('blank');

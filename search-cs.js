@@ -1,7 +1,7 @@
 /// <reference types="new-javascript" />
 
 const sheet = new CSSStyleSheet();
-/** @type {{ node: Text, match: RegExpExecArray, range?: Range, highlight?: Highlight }[]} */
+/** @type {{ startNode: Text, endNode: Text, start: number, end: number, range?: Range, highlight?: Highlight }[]} */
 var results = [], index = 0, bit = 32, hpriority = 1, priority = 2, breaking = false;
 
 chrome.runtime.onMessage.addListener((...args) => { receiver(...args); return undefined; });
@@ -65,7 +65,6 @@ function* search(data) {
   try {
     results = []; let /** @type {RegExp} */ re;
     if (data[0].length < 1) return false;
-    if (!data[1].includes('g')) data[1] += 'g';
     try {
       re = new RegExp(data[0], data[1]);
     } catch (e) {
@@ -77,19 +76,48 @@ function* search(data) {
       }
     }
 
+    let strings = ""
+    let indexed = []
+
     let nodes = document.createNodeIterator(document, NodeFilter.SHOW_TEXT), /** @type {Text | null} */ node;
     while (node = /** @type {Text | null} */ (nodes.nextNode())) {
       if (breaking) break;
       yield;
       if (!(node instanceof Text)) continue;
       if (!node.nodeValue) continue;
-      if (node.parentElement && node.parentElement.closest('script, style, svg, audio, canvas, figure, video, select, input, textarea' + /** exclusion */ ', title, noscript')) continue;
-      let /** @type {RegExpExecArray | null}*/ match;
-      while (match = re.exec(node.nodeValue)) {
-        if (match === null) break;
-        if (match[0] === '') { re.lastIndex++; continue; }
-        results.push({ node, match });
+      if (node.parentElement && !node.parentElement.checkVisibility({ contentVisibilityAuto: true })) continue;
+
+      let info = { start: strings.length, end: 0, node }
+      strings += node.nodeValue;
+      info.end = strings.length
+
+      indexed.push(info)
+    }
+    if (checkBreak()) return true;
+    let /** @type {RegExpExecArray | null}*/ match;
+    let iPos = 0;
+    while (match = re.exec(strings)) {
+      if (breaking) break;
+      yield;
+      if (match === null) break;
+      if (match[0] === '') { re.lastIndex++; continue; }
+      let snode, enode, s = 0, e = 0;
+      let epos = match.index + match[0].length;
+      while (iPos < indexed.length) {
+        if (indexed[iPos].start <= match.index && match.index < indexed[iPos].end) {
+          snode = indexed[iPos].node
+          s = match.index - indexed[iPos].start
+        }
+        if (indexed[iPos].start < epos && epos <= indexed[iPos].end) {
+          enode = indexed[iPos].node
+          e = epos - indexed[iPos].start
+          break;
+        }
+        iPos++;
       }
+      if (!snode || !enode)
+        break;
+      results.push({ startNode: snode, endNode: enode, start: s, end: e });
     }
     if (checkBreak()) return true;
     index = Math.min(Math.max(index, 0), results.length - 1);
@@ -108,13 +136,13 @@ function* highlight() {
     if (!document.adoptedStyleSheets.includes(sheet)) document.adoptedStyleSheets.push(sheet);
 
     for (let index = 0; index < results.length; index++) {
+      yield;
       if (check(index)) breaking = true;
       if (breaking) break;
-      yield;
       const data = results[index];
       let range = new Range();
-      range.setStart(data.node, data.match.index);
-      range.setEnd(data.node, data.match.index + data.match[0].length);
+      range.setStart(data.startNode, data.start);
+      range.setEnd(data.endNode, data.end);
       data.range = range;
 
       let hl = new Highlight(range);
@@ -178,8 +206,8 @@ function scrollToIndex() {
     if (sheet.cssRules.length <= index || results.length <= index || index < 0) return;
     if (!document.adoptedStyleSheets.includes(sheet)) document.adoptedStyleSheets.push(sheet);
 
-    // @ts-expect-error
-    results[index].node.parentElement?.scrollIntoViewIfNeeded();
+    // // @ts-expect-error
+    // results[index].startNode.parentElement?.scrollIntoViewIfNeeded();
 
     let rect = results[index].range?.getBoundingClientRect(); if (!rect) return;
     if (rect.top < 0 || rect.bottom > document.documentElement.clientHeight) {
@@ -229,7 +257,7 @@ function setIndex(idx) { unhighlightIndex(); index = idx; highlightIndex(); scro
  * @param {any} [response]
  */
 function check(index, response) {
-  if (!results[index] || !document.contains(results[index].node)) {
+  if (!results[index] || !document.contains(results[index].startNode) || !document.contains(results[index].endNode)) {
     results.splice(index, 1);
     if (response) send(['change', response, 'total', results.length]);
     return true;

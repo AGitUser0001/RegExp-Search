@@ -10,6 +10,13 @@
   </head>
 
   <body>
+    <section id='flags'>
+      <input type="checkbox" name="checkbox" value="i" title='Case-insensitive search.'>
+      <input type="checkbox" name="checkbox" value="m" title='Makes ^ and $ match the start and end of each line instead of those of the entire string.'>
+      <input type="checkbox" name="checkbox" value="s" title='Allows . to match newline characters.'>
+      <input type="checkbox" name="checkbox" value="u" title='"Unicode"; treat a pattern as a sequence of Unicode code points.'>
+      <input type="checkbox" name="checkbox" value="v" title='An upgrade to the u mode with more Unicode features.'>
+    </section>
     <section>
       <textarea id='query' placeholder='Find RegExp…' autofocus></textarea>
       <span id='position'>
@@ -17,7 +24,7 @@
       </span>
     </section>
     <section>
-      <textarea id='error'></textarea>
+      <textarea id='error' readonly></textarea>
     </section>
     <script src='search-ui.js'></script>
   </body>
